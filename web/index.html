@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Numerische Lösung</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width:700px; margin:2rem auto; padding:1rem; }
+    label { display:block; margin-top:0.5rem; }
+    input { width:100%; padding:0.5rem; margin-top:0.25rem; }
+    button { margin-top:1rem; padding:0.5rem 1rem; }
+    pre { background:#f7f7f7; padding:1rem; }
+  </style>
+</head>
+<body>
+  <h1>Nullstelle von f(x)=a*x+b und g(x)=c*d^x</h1>
+  <form id="frm">
+    <label>a (f(x) = a*x + b): <input name="a" value="1" required></label>
+    <label>b (f(x) = a*x + b): <input name="b" value="0" required></label>
+    <label>c (g(x) = c*d^x): <input name="c" value="1" required></label>
+    <label>d (g(x) = c*d^x): <input name="d" value="2" required></label>
+    <button type="submit">Berechne</button>
+  </form>
+
+  <h2>Ergebnis</h2>
+  <pre id="out">keine Berechnung durchgeführt</pre>
+
+  <script>
+    const form = document.getElementById('frm');
+    const out = document.getElementById('out');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = new URLSearchParams(new FormData(form));
+      out.textContent = 'Berechne...';
+      try {
+        const res = await fetch('/solve', { method: 'POST', body: data });
+        const json = await res.json();
+        out.textContent = JSON.stringify(json, null, 2);
+      } catch (err) {
+        out.textContent = 'Fehler: ' + err;
+      }
+    });
+  </script>
+</body>
+</html>
