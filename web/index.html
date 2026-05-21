@@ -87,6 +87,7 @@
     <footer>Einfaches Demo — Werte mit sinnvollen Parametern testen (z.B. a=-1,b=5,c=1,d=1.2)</footer>
   </div>
 
+  <script src="app.js"></script>
   <script>
     const form = document.getElementById('frm');
     const out = document.getElementById('out');
@@ -149,17 +150,54 @@
       out.textContent = 'Berechne...'; intervalEl.textContent = '—'; rootEl.textContent = '—';
 
       try {
-        const res = await fetch('/solve', { method: 'POST', body: new URLSearchParams({a,b,c,d}) });
-        const json = await res.json();
+        // use client-side solver (no server required)
+        const interval = window.solver.hVonX(a,b,c,d);
+        let root = null;
+        let msg = 'ok';
+        if (interval) {
+          root = window.solver.bisectRoot(a,b,c,d,interval[0],interval[1],1e-12,1000);
+        } else {
+          msg = 'kein Vorzeichenwechsel gefunden';
+        }
+        const json = { message: msg, interval: interval, root: root };
+
         if (json.message && json.message !== 'ok') out.textContent = json.message; else out.textContent = JSON.stringify(json, null, 2);
         if (json.interval) intervalEl.textContent = '['+Number(json.interval[0]).toFixed(6)+', '+Number(json.interval[1]).toFixed(6)+']'; else intervalEl.textContent = '—';
-        if (json.root) rootEl.textContent = Number(json.root).toFixed(12); else rootEl.textContent='—';
 
         const drawInfo = plotFunctions(a,b,c,d,xmin,xmax);
-        if (json.root){
-          const rx = drawInfo.mapX(json.root);
-          const ry = drawInfo.mapY(a*json.root + b);
+        if (json.root !== null && json.root !== undefined){
+          const rx = drawInfo.mapX(Number(json.root));
+          const ry = drawInfo.mapY(a*Number(json.root) + b);
+          // marker (circle)
           ctx.fillStyle='#10b981'; ctx.beginPath(); ctx.arc(rx,ry,6,0,Math.PI*2); ctx.fill();
+          // crosshair
+          ctx.strokeStyle='rgba(16,185,129,0.9)'; ctx.lineWidth=1;
+          ctx.beginPath(); ctx.moveTo(rx-10,ry); ctx.lineTo(rx+10,ry); ctx.moveTo(rx,ry-10); ctx.lineTo(rx,ry+10); ctx.stroke();
+          // label background
+          const label = 'x=' + Number(json.root).toFixed(8) + ', y=' + Number(a*Number(json.root)+b).toFixed(8);
+          ctx.font = '12px Inter, Arial';
+          const padding = 6;
+          const tw = ctx.measureText(label).width + padding*2;
+          const th = 18 + 4;
+          let lx = rx + 10;
+          let ly = ry - th - 6;
+          if (lx + tw > canvas.width) lx = rx - tw - 10;
+          if (ly < 0) ly = ry + 10;
+          ctx.fillStyle = 'rgba(17,24,39,0.9)';
+          ctx.fillRect(lx, ly, tw, th);
+          ctx.fillStyle = '#fff';
+          ctx.fillText(label, lx + padding, ly + 14);
+
+          rootEl.textContent = Number(json.root).toFixed(12);
+          // human-friendly output
+          out.textContent = 'Nullstelle: x = ' + Number(json.root).toFixed(12) + '\n' + 'f(x)=g(x) ≈ ' + Number(a*Number(json.root)+b).toFixed(12);
+        } else {
+          rootEl.textContent = '—';
+          if (json.message && json.message !== 'ok') {
+            out.textContent = json.message;
+          } else {
+            out.textContent = JSON.stringify(json, null, 2);
+          }
         }
       } catch (err) {
         out.textContent = 'Fehler: ' + err;
