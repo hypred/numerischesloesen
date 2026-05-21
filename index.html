@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Numerische Lösung</title>
+  <style>
+    :root{--bg:#f4f6fb;--card:#ffffff;--accent:#2563eb;--muted:#6b7280}
+    *{box-sizing:border-box}
+    body{font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:#111827;margin:0;padding:2rem}
+    .container{max-width:980px;margin:0 auto;background:var(--card);border-radius:12px;padding:1.25rem 1.5rem;box-shadow:0 6px 30px rgba(15,23,42,0.08)}
+    h1{font-size:1.25rem;margin:0 0 0.75rem}
+    .grid{display:grid;grid-template-columns:1fr 420px;gap:1rem}
+    form{display:flex;flex-direction:column;gap:0.5rem}
+    label{font-size:0.85rem;color:var(--muted)}
+    input[type=number]{width:100%;padding:0.5rem;border:1px solid #e6edf3;border-radius:8px}
+    .row{display:flex;gap:0.5rem}
+    .row>div{flex:1}
+    button{background:var(--accent);color:white;padding:0.55rem 0.85rem;border-radius:10px;border:none;cursor:pointer}
+    .result{padding:0.75rem;border-radius:8px;background:#f8fafc;border:1px solid #eef2ff;min-height:3.2rem;font-family:monospace;white-space:pre-wrap}
+    canvas{width:100%;height:320px;border-radius:8px;background:white;display:block}
+    .meta{font-size:0.85rem;color:var(--muted)}
+    footer{margin-top:0.75rem;font-size:0.8rem;color:var(--muted)}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Nullstelle von f(x)=a*x+b und g(x)=c*d^x</h1>
+    <div class="grid">
+      <div>
+        <form id="frm">
+          <div class="row">
+            <div>
+              <label>a (f(x) = a·x + b)</label>
+              <input type="number" step="any" name="a" value="1" required>
+            </div>
+            <div>
+              <label>b (f(x) = a·x + b)</label>
+              <input type="number" step="any" name="b" value="0" required>
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>c (g(x) = c·d^x)</label>
+              <input type="number" step="any" name="c" value="1" required>
+            </div>
+            <div>
+              <label>d (g(x) = c·d^x)</label>
+              <input type="number" step="any" name="d" value="2" required>
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Darstellungsbereich xmin</label>
+              <input type="number" step="any" name="xmin" value="-10">
+            </div>
+            <div>
+              <label>Darstellungsbereich xmax</label>
+              <input type="number" step="any" name="xmax" value="10">
+            </div>
+          </div>
+          <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+            <button type="submit">Berechne & Zeichne</button>
+            <button type="button" id="reset">Zurücksetzen</button>
+          </div>
+        </form>
+        <div style="margin-top:0.75rem">
+          <div class="meta">Ergebnis</div>
+          <div id="out" class="result">keine Berechnung durchgeführt</div>
+        </div>
+      </div>
+      <div>
+        <canvas id="plot" width="680" height="320"></canvas>
+        <div style="display:flex;justify-content:space-between;margin-top:0.5rem">
+          <div class="meta">Intervall: <span id="interval">—</span></div>
+          <div class="meta">Nullstelle: <span id="root">—</span></div>
+        </div>
+      </div>
+    </div>
+    <footer>Die Seite läuft komplett im Browser und braucht keinen Java-Server.</footer>
+  </div>
+
+  <script src="web/app.js"></script>
+  <script>
+    const form = document.getElementById('frm');
+    const out = document.getElementById('out');
+    const intervalEl = document.getElementById('interval');
+    const rootEl = document.getElementById('root');
+    const canvas = document.getElementById('plot');
+    const ctx = canvas.getContext('2d');
+
+    function clearPlot(){ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
+
+    function drawAxes(xmin,xmax, ymin, ymax){
+      ctx.strokeStyle='#e6edf3'; ctx.lineWidth=1;
+      for(let i=0;i<=10;i++){ let x = i/10*(canvas.width); ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+      for(let i=0;i<=8;i++){ let y = i/8*(canvas.height); ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+      if (xmin<=0 && xmax>=0){ let x = (0 - xmin)/(xmax-xmin)*canvas.width; ctx.strokeStyle='#111827'; ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+      if (ymin<=0 && ymax>=0){ let y = (1 - (0 - ymin)/(ymax - ymin))*canvas.height; ctx.strokeStyle='#111827'; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+    }
+
+    function plotFunctions(a,b,c,d, xmin,xmax){
+      const samples = 600;
+      const ys = [];
+      for(let i=0;i<=samples;i++){
+        const x = xmin + (xmax-xmin)*i/samples;
+        ys.push(a*x+b);
+        ys.push(c*Math.pow(d,x));
+      }
+      let ymin = Math.min(...ys); let ymax = Math.max(...ys);
+      if (ymin === ymax){ ymin -= 1; ymax += 1; }
+      clearPlot(); drawAxes(xmin,xmax,ymin,ymax);
+
+      const mapX = (x) => (x - xmin)/(xmax-xmin)*canvas.width;
+      const mapY = (y) => (1 - (y - ymin)/(ymax - ymin))*canvas.height;
+
+      ctx.beginPath(); ctx.strokeStyle='#2563eb'; ctx.lineWidth=2;
+      for(let i=0;i<=samples;i++){
+        const x = xmin + (xmax-xmin)*i/samples;
+        const y = a*x + b;
+        const px = mapX(x), py = mapY(y);
+        if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+
+      ctx.beginPath(); ctx.strokeStyle='#ef4444'; ctx.lineWidth=2;
+      for(let i=0;i<=samples;i++){
+        const x = xmin + (xmax-xmin)*i/samples;
+        const y = c*Math.pow(d,x);
+        const px = mapX(x), py = mapY(y);
+        if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+
+      return { mapX, mapY };
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const a = Number(fd.get('a'));
+      const b = Number(fd.get('b'));
+      const c = Number(fd.get('c'));
+      const d = Number(fd.get('d'));
+      const xmin = Number(fd.get('xmin')) || -10;
+      const xmax = Number(fd.get('xmax')) || 10;
+
+      const interval = window.solver.hVonX(a,b,c,d);
+      let root = null;
+      let msg = 'ok';
+      if (interval) {
+        root = window.solver.bisectRoot(a,b,c,d,interval[0],interval[1],1e-12,1000);
+      } else {
+        msg = 'kein Vorzeichenwechsel gefunden';
+      }
+
+      if (interval) {
+        intervalEl.textContent = '[' + Number(interval[0]).toFixed(6) + ', ' + Number(interval[1]).toFixed(6) + ']';
+      } else {
+        intervalEl.textContent = '—';
+      }
+
+      const drawInfo = plotFunctions(a,b,c,d,xmin,xmax);
+      if (root !== null && root !== undefined) {
+        const rx = drawInfo.mapX(Number(root));
+        const ry = drawInfo.mapY(a*Number(root) + b);
+        ctx.fillStyle='#10b981'; ctx.beginPath(); ctx.arc(rx,ry,6,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='rgba(16,185,129,0.9)'; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(rx-10,ry); ctx.lineTo(rx+10,ry); ctx.moveTo(rx,ry-10); ctx.lineTo(rx,ry+10); ctx.stroke();
+        const label = 'x=' + Number(root).toFixed(8) + ', y=' + Number(a*Number(root)+b).toFixed(8);
+        ctx.font = '12px Inter, Arial';
+        const padding = 6;
+        const tw = ctx.measureText(label).width + padding*2;
+        const th = 22;
+        let lx = rx + 10;
+        let ly = ry - th - 6;
+        if (lx + tw > canvas.width) lx = rx - tw - 10;
+        if (ly < 0) ly = ry + 10;
+        ctx.fillStyle = 'rgba(17,24,39,0.9)';
+        ctx.fillRect(lx, ly, tw, th);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(label, lx + padding, ly + 15);
+
+        rootEl.textContent = Number(root).toFixed(12);
+        out.textContent = 'Nullstelle: x = ' + Number(root).toFixed(12) + '\n' + 'f(x)=g(x) ≈ ' + Number(a*Number(root)+b).toFixed(12);
+      } else {
+        rootEl.textContent = '—';
+        out.textContent = msg;
+      }
+    });
+
+    document.getElementById('reset').addEventListener('click', () => {
+      form.reset();
+      out.textContent = 'keine Berechnung durchgeführt';
+      intervalEl.textContent = '—';
+      rootEl.textContent = '—';
+      clearPlot();
+    });
+
+    clearPlot();
+  </script>
+</body>
+</html>
